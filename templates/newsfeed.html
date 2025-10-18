@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Стрічка новин</title>
+    <link rel="stylesheet" href="/static/newsfeed.css">
+</head>
+<body>
+    <div class="container">
+        {% if current_user.role == 'admin' %}
+        <div class="admin-corner-info">
+            <span class="admin-crown">👑</span>
+            <span class="admin-text">Адміністратор</span>
+        </div>
+        {% endif %}
+        <header class="header">
+            <div class="header-content">
+                <h1>📰 Стрічка новин</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">Головна</a>
+                    <a href="/newsfeed" class="nav-link active">Стрічка</a>
+                    <button id="createPostBtn" class="create-post-btn">➕ Створити пост</button>
+                    <a href="/logout" class="logout-btn">Вийти</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Модальне вікно для створення посту (для всіх) -->
+        <div id="postModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>📝 Створити новий пост</h2>
+                <form id="postForm" class="post-form">
+                    <div class="form-group">
+                        <label for="postTitle">Заголовок:</label>
+                        <input type="text" id="postTitle" name="title" placeholder="Введіть заголовок посту..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="postContent">Зміст:</label>
+                        <textarea id="postContent" name="content" placeholder="Напишіть зміст посту..." rows="6" required></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn">📤 Опублікувати</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Швидке створення посту тільки для адмінів -->
+        {% if current_user.role == 'admin' %}
+        <section class="create-post-section">
+            <div class="create-post-card">
+                <h3>👑 Швидке створення новини (Адмін)</h3>
+                <textarea id="quickPost" placeholder="Напишіть важливу новину..." rows="3"></textarea>
+                <button id="quickPostBtn" class="quick-post-btn">🚀 Опублікувати новину</button>
+            </div>
+        </section>
+        {% endif %}
+
+        <main class="main-content">
+            <section class="posts-section">
+                <h2>📢 Останні новини</h2>
+                <div id="postsContainer" class="posts-container">
+                    <div class="loading">Завантаження постів...</div>
+                </div>
+            </section>
+
+            <aside class="sidebar">
+                <!-- Статистика тільки для адміністратора -->
+                {% if current_user.role == 'admin' %}
+                <div class="sidebar-card">
+                    <h3>📊 Статистика</h3>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalPosts">0</span>
+                            <span class="stat-label">всього постів</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalLikes">0</span>
+                            <span class="stat-label">всього лайків</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-card">
+                    <h3>👥 Останні користувачі</h3>
+                    <div id="recentUsers" class="recent-users">
+                        <!-- Користувачі будуть додаватись тут -->
+                    </div>
+                </div>
+                {% else %}
+                <!-- Для звичайних користувачів показуємо іншу інформацію -->
+                <div class="sidebar-card">
+                    <h3>ℹ️ Ваш профіль</h3>
+                    <div class="user-info-sidebar">
+                        <div class="user-welcome">
+                            <p>Вітаємо, <strong>{{ current_user.fullName }}</strong>! 🎉</p>
+                            <p>Ви можете створювати пости та взаємодіяти з іншими.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-card">
+                    <h3>💡 Поради</h3>
+                    <div class="help-info">
+                        <p>📝 Пишіть цікаві пости</p>
+                        <p>❤️ Вподобайте, що сподобалося</p>
+                        <p>👥 Знаходьте нових друзів</p>
+                    </div>
+                </div>
+                {% endif %}
+            </aside>
+        </main>
+    </div>
+
+    <script src="/static/newsfeed.js"></script>
+</body>
+</html>
