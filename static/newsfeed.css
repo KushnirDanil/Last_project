@@ -125,6 +125,267 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(231, 76, 60, 0.3);
 }
+/* ===== МОДАЛЬНЕ ВІКНО ===== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    margin: 5% auto;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 600px;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Кнопка закриття */
+.close {
+    position: absolute;
+    right: 25px;
+    top: 20px;
+    font-size: 32px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.3s ease;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(108, 117, 125, 0.1);
+}
+
+.close:hover {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+    transform: rotate(90deg);
+}
+
+/* Заголовок модального вікна */
+.modal-content h2 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    background-clip: text;
+}
+
+/* ===== ФОРМА ===== */
+.post-form {
+    margin-top: 20px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1rem;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 16px 20px;
+    border: 2px solid #e1e8ed;
+    border-radius: 12px;
+    font-size: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.8);
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+    background: white;
+    transform: translateY(-2px);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #a0a0a0;
+    opacity: 0.7;
+}
+
+/* Текстове поле */
+.form-group textarea {
+    min-height: 150px;
+    line-height: 1.6;
+}
+
+/* Кнопка відправки */
+.submit-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 18px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+}
+
+.submit-btn:active {
+    transform: translateY(-1px);
+}
+
+/* Ефект завантаження для кнопки */
+.submit-btn.loading {
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.submit-btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ===== АДАПТИВНІСТЬ ===== */
+@media (max-width: 768px) {
+    .modal-content {
+        margin: 10% auto;
+        padding: 30px 25px;
+        width: 95%;
+    }
+    
+    .modal-content h2 {
+        font-size: 1.6rem;
+        margin-bottom: 25px;
+    }
+    
+    .close {
+        right: 20px;
+        top: 15px;
+        font-size: 28px;
+        width: 35px;
+        height: 35px;
+    }
+    
+    .form-group input,
+    .form-group textarea {
+        padding: 14px 18px;
+    }
+    
+    .submit-btn {
+        padding: 16px;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-content {
+        margin: 15% auto;
+        padding: 25px 20px;
+    }
+    
+    .modal-content h2 {
+        font-size: 1.4rem;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        font-size: 0.95rem;
+        margin-bottom: 10px;
+    }
+}
+
+/* ===== ДОДАТКОВІ ЕФЕКТИ ===== */
+/* Підсвічування активного поля */
+.form-group input:focus,
+.form-group textarea:focus {
+    border-color: #667eea;
+    box-shadow: 
+        0 0 0 4px rgba(102, 126, 234, 0.15),
+        inset 0 0 0 1px rgba(102, 126, 234, 0.1);
+}
+
+/* Ховер ефект для всіх інтерактивних елементів */
+.form-group input:hover,
+.form-group textarea:hover {
+    border-color: #a3bffa;
+}
+
+/* Валідація полів */
+.form-group input:invalid:not(:focus):not(:placeholder-shown),
+.form-group textarea:invalid:not(:focus):not(:placeholder-shown) {
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.05);
+}
+
+.form-group input:valid:not(:focus):not(:placeholder-shown),
+.form-group textarea:valid:not(:focus):not(:placeholder-shown) {
+    border-color: #27ae60;
+    background: rgba(39, 174, 96, 0.05);
+}
 
 /* ===== MAIN CONTENT ===== */
 .main-content {

@@ -12,22 +12,22 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 db = SQLAlchemy(app)
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    fullName = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    phone = db.Column(db.String(20), nullable=False)
-    password = db.Column(db.String(128), nullable=False)  # Додали пароль
-    registration_date = db.Column(db.DateTime, default=datetime.utcnow)
-    role = db.Column(db.String(20), default='user')
-    posts = db.relationship('Post', backref='author', lazy=True)
+    id = db.Column(db.Integer, primary_key=True) # Унікальний ідентифікатор користувача
+    fullName = db.Column(db.String(100), nullable=False) # Повне ім'я та прізвище користувача
+    email = db.Column(db.String(100), unique=True, nullable=False) # Електронна пошта користувача
+    phone = db.Column(db.String(20), nullable=False) # Номер телефону користувача
+    password = db.Column(db.String(128), nullable=False) # Хешований пароль користувача
+    registration_date = db.Column(db.DateTime, default=datetime.utcnow) # Дата та час реєстрації користувача
+    role = db.Column(db.String(20), default='user') # Роль користувача: 'user' або 'admin'
+    posts = db.relationship('Post', backref='author', lazy=True) # Відношення до постів користувача 
 
 class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    date_posted = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    likes = db.Column(db.Integer, default=0)
+    id = db.Column(db.Integer, primary_key=True) # Унікальний ідентифікатор поста
+    title = db.Column(db.String(200), nullable=False) # Заголовок поста
+    content = db.Column(db.Text, nullable=False) # Зміст поста
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow) # Дата та час публікації поста
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Ідентифікатор автора поста
+    likes = db.Column(db.Integer, default=0) # Кількість лайків поста
 
 # Функція для хешування пароля
 def hash_password(password):
