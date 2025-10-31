@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Головна сторінка</title>
+    <link rel="stylesheet" href="/static/home.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Інформація про адміна в правому куті -->
+        {% if current_user.role == 'admin' %}
+        <div class="admin-corner-info">
+            <span class="admin-crown">👑</span>
+            <span class="admin-text">Адміністратор</span>
+        </div>
+        {% endif %}
+        
+        <header class="header">
+            <div class="header-content">
+                <h1>Вітаємо на нашому сайті! 🎉</h1>
+                <nav class="nav">
+                    <a href="/home" class="nav-link active">🏠 Головна</a>
+                    <a href="/newsfeed" class="nav-link">📰 Стрічка</a>
+                    <a href="/logout" class="logout-btn">🚪 Вийти</a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Інформація про користувача -->
+            <section class="welcome-section">
+                <div class="welcome-card">
+                    <h2>👋 Вітаємо, {{ current_user.fullName }}!</h2>
+                    <div class="user-info">
+                        <p><strong>Email:</strong> {{ current_user.email }}</p>
+                        <p><strong>Телефон:</strong> {{ current_user.phone }}</p>
+                        <p><strong>Роль:</strong> 
+                            {% if current_user.role == 'admin' %}
+                                <span class="admin-role">👑 Адміністратор</span>
+                            {% else %}
+                                <span class="user-role">👤 Користувач</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Дата реєстрації:</strong> {{ current_user.registration_date.strftime('%d.%m.%Y') }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Список користувачів тільки для адміністратора -->
+            {% if current_user.role == 'admin' %}
+            <section class="users-section">
+                <h2>👥 Учасники спільноти (Адмін)</h2>
+                <div class="users-container">
+                    {% for user in users %}
+                        <div class="user-card">
+                            <div class="user-avatar">
+                                {{ user.fullName[0] }}
+                            </div>
+                            <div class="user-details">
+                                <div class="user-name">👤 {{ user.fullName }}</div>
+                                <div class="user-date">📅 {{ user.registration_date.strftime('%d.%m.%Y %H:%M') }}</div>
+                                <div class="user-email">📧 {{ user.email }}</div>
+                                <div class="user-phone">📞 {{ user.phone }}</div>
+                                {% if user.role == 'admin' %}
+                                    <div class="user-role admin">👑 Адміністратор</div>
+                                {% else %}
+                                    <div class="user-role user">👤 Користувач</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <p>Поки що немає зареєстрованих користувачів</p>
+                            <p>Будьте першим!</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="stats-section">
+                <h2>📊 Статистика</h2>
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ users|length }}</div>
+                        <div class="stat-label">Всього користувачів</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ today_users }}</div>
+                        <div class="stat-label">Сьогодні зареєстровано</div>
+                    </div>
+                </div>
+            </section>
+            {% else %}
+            <!-- Для звичайних користувачів -->
+            <section class="features-section">
+                <h2>🚀 Можливості платформи</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3>Створення постів</h3>
+                        <p>Діліться своїми думками та ідеями зі спільнотою</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">❤️</div>
+                        <h3>Взаємодія</h3>
+                        <p>Вподобайте пости, які вам сподобалися</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <h3>Спільнота</h3>
+                        <p>Спілкуйтеся з іншими користувачами</p>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Швидкі дії -->
+            <section class="quick-actions">
+                <h2>⚡ Швидкі дії</h2>
+                <div class="actions-grid">
+                    <a href="/newsfeed" class="action-card">
+                        <div class="action-icon">📰</div>
+                        <h3>Перейти до стрічки</h3>
+                        <p>Переглянути останні пости</p>
+                    </a>
+                    {% if current_user.role == 'admin' %}
+                    <a href="/newsfeed" class="action-card">
+                        <div class="action-icon">👑</div>
+                        <h3>Адмін-панель</h3>
+                        <p>Керування контентом</p>
+                    </a>
+                    {% endif %}
+                </div>
+            </section>
+        </main>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="message success">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

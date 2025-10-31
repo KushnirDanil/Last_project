@@ -28,13 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Перевірка чи поточний користувач адміністратор
 function checkAdminStatus() {
     const quickPostSection = document.getElementById('quickPost');
-    
-    if (quickPostSection) {
-        isAdmin = true;
-        console.log('👑 Користувач є адміністратором');
-    } else {
-        console.log('👤 Користувач є звичайним користувачем');
-    }
+    isAdmin = !!quickPostSection;
+    console.log(isAdmin ? '👑 Користувач є адміністратором' : '👤 Користувач є звичайним користувачем');
 }
 
 // Налаштування слухачів подій
@@ -52,11 +47,21 @@ function setupEventListeners() {
     if (quickPostBtn) {
         quickPostBtn.addEventListener('click', handleQuickPost);
     }
+    
+    // Обробка клавіші ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && postModal && postModal.style.display === 'block') {
+            closeModalFunc();
+        }
+    });
 }
 
-// Функції для модального вікна (для всіх)
+// Функції для модального вікна
 function openModal() {
-    postModal.style.display = 'block';
+    if (postModal) {
+        postModal.style.display = 'block';
+        document.getElementById('postTitle')?.focus();
+    }
 }
 
 function closeModalFunc() {
@@ -77,7 +82,13 @@ function outsideClick(e) {
 // Завантаження постів
 async function loadPosts() {
     try {
+        showLoadingState();
         const response = await fetch('/api/posts');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const posts = await response.json();
         allPosts = posts;
         displayPosts(posts);
@@ -86,9 +97,33 @@ async function loadPosts() {
         }
     } catch (error) {
         console.error('Помилка завантаження постів:', error);
-        if (postsContainer) {
-            postsContainer.innerHTML = '<div class="loading">❌ Помилка завантаження постів</div>';
-        }
+        showErrorState('❌ Помилка завантаження постів');
+    }
+}
+
+function showLoadingState() {
+    if (postsContainer) {
+        postsContainer.innerHTML = `
+            <div class="post-card">
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <p>Завантаження постів...</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function showErrorState(message) {
+    if (postsContainer) {
+        postsContainer.innerHTML = `
+            <div class="post-card">
+                <div class="error-state">
+                    <h3>${message}</h3>
+                    <button onclick="loadPosts()" class="retry-btn">🔄 Спробувати знову</button>
+                </div>
+            </div>
+        `;
     }
 }
 
@@ -96,7 +131,7 @@ async function loadPosts() {
 function displayPosts(posts) {
     if (!postsContainer) return;
     
-    if (posts.length === 0) {
+    if (!posts || posts.length === 0) {
         postsContainer.innerHTML = `
             <div class="post-card">
                 <div class="empty-state">
@@ -113,39 +148,58 @@ function displayPosts(posts) {
             <div class="post-header">
                 <div class="post-author">
                     👤 ${post.author}
-                    ${post.author_role === 'admin' ? '<span style="color: gold; margin-left: 5px;">👑</span>' : ''}
+                    ${post.author_role === 'admin' ? '<span class="admin-badge" title="Адміністратор">👑</span>' : ''}
                 </div>
                 <div class="post-date">📅 ${post.date_posted}</div>
             </div>
             <h3 class="post-title">${post.title}</h3>
             <div class="post-content">${post.content}</div>
             <div class="post-actions">
-                <button class="like-btn" onclick="likePost(${post.id})">
+                <button class="like-btn" onclick="likePost(${post.id})" aria-label="Вподобати пост">
                     ❤️ <span class="like-count">${post.likes}</span>
                 </button>
-                ${isAdmin ? `<button class="delete-btn" onclick="deletePost(${post.id})">🗑️ Видалити</button>` : ''}
+                ${isAdmin ? `
+                    <button class="delete-btn" onclick="deletePost(${post.id})" aria-label="Видалити пост">
+                        🗑️ Видалити
+                    </button>
+                ` : ''}
             </div>
         </div>
     `).join('');
 }
 
-// Обробка створення посту через модальне вікно (для всіх)
+// Обробка створення посту через модальне вікно
 async function handlePostSubmit(e) {
     e.preventDefault();
     
-    const formData = new FormData(postForm);
-    const postData = {
-        title: formData.get('title'),
-        content: formData.get('content')
-    };
-
-    // Валідація
-    if (!postData.title.trim() || !postData.content.trim()) {
-        showMessage('❌ Будь ласка, заповніть всі поля', 'error');
-        return;
-    }
-
+    const submitBtn = postForm.querySelector('.submit-btn');
+    const originalText = submitBtn.textContent;
+    
     try {
+        // Валідація форми
+        const title = document.getElementById('postTitle').value.trim();
+        const content = document.getElementById('postContent').value.trim();
+        
+        if (!title || !content) {
+            showMessage('❌ Будь ласка, заповніть всі поля', 'error');
+            return;
+        }
+        
+        if (title.length > 200) {
+            showMessage('❌ Заголовок занадто довгий (макс. 200 символів)', 'error');
+            return;
+        }
+        
+        // Показати стан завантаження
+        submitBtn.textContent = 'Публікація...';
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+        
+        const postData = {
+            title: title,
+            content: content
+        };
+
         const response = await fetch('/api/posts', {
             method: 'POST',
             headers: {
@@ -158,7 +212,7 @@ async function handlePostSubmit(e) {
         
         if (result.success) {
             closeModalFunc();
-            loadPosts();
+            await loadPosts();
             showMessage('✅ Пост успішно опубліковано!', 'success');
         } else {
             showMessage('❌ ' + result.message, 'error');
@@ -166,13 +220,18 @@ async function handlePostSubmit(e) {
     } catch (error) {
         console.error('Помилка:', error);
         showMessage('❌ Помилка при публікації посту', 'error');
+    } finally {
+        // Відновити кнопку
+        submitBtn.textContent = originalText;
+        submitBtn.classList.remove('loading');
+        submitBtn.disabled = false;
     }
 }
 
 // Швидкий пост (тільки для адмінів)
 async function handleQuickPost() {
     if (!isAdmin) {
-        alert('Тільки адміністратор може використовувати швидке створення новин!');
+        showMessage('❌ Тільки адміністратор може використовувати швидке створення новин!', 'error');
         return;
     }
 
@@ -188,6 +247,9 @@ async function handleQuickPost() {
     };
 
     try {
+        quickPostBtn.disabled = true;
+        quickPostBtn.textContent = 'Публікація...';
+
         const response = await fetch('/api/posts', {
             method: 'POST',
             headers: {
@@ -200,7 +262,7 @@ async function handleQuickPost() {
         
         if (result.success) {
             quickPost.value = '';
-            loadPosts();
+            await loadPosts();
             showMessage('✅ Важливу новину опубліковано!', 'success');
         } else {
             showMessage('❌ ' + result.message, 'error');
@@ -208,12 +270,20 @@ async function handleQuickPost() {
     } catch (error) {
         console.error('Помилка:', error);
         showMessage('❌ Помилка при публікації новини', 'error');
+    } finally {
+        quickPostBtn.disabled = false;
+        quickPostBtn.textContent = '🚀 Опублікувати новину';
     }
 }
 
 // Лайк посту
 async function likePost(postId) {
     try {
+        const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-btn`);
+        if (likeBtn) {
+            likeBtn.disabled = true;
+        }
+
         const response = await fetch(`/api/posts/${postId}/like`, {
             method: 'POST'
         });
@@ -221,37 +291,58 @@ async function likePost(postId) {
         const result = await response.json();
         
         if (result.success) {
-            const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-count`);
-            if (likeBtn) {
-                likeBtn.textContent = result.likes;
+            const likeCount = document.querySelector(`[data-post-id="${postId}"] .like-count`);
+            if (likeCount) {
+                likeCount.textContent = result.likes;
             }
             if (isAdmin) {
                 updateStats();
             }
             showMessage('❤️ Вам сподобався цей пост!', 'success');
+        } else {
+            showMessage('❌ ' + result.message, 'error');
         }
     } catch (error) {
         console.error('Помилка лайку:', error);
         showMessage('❌ Помилка при лайку посту', 'error');
+    } finally {
+        const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-btn`);
+        if (likeBtn) {
+            likeBtn.disabled = false;
+        }
     }
 }
 
 // Видалення посту (тільки для адміна)
 async function deletePost(postId) {
     if (!isAdmin) {
-        alert('Тільки адміністратор може видаляти пости!');
+        showMessage('❌ Тільки адміністратор може видаляти пости!', 'error');
         return;
     }
     
-    if (!confirm('Ви впевнені, що хочете видалити цей пост?')) {
+    if (!confirm('Ви впевнені, що хочете видалити цей пост? Цю дію не можна скасувати.')) {
         return;
     }
     
     try {
-        // Тимчасово - просто оновлюємо сторінку
-        // Пізніше можна додати API для видалення
-        alert('Функція видалення буде додана пізніше');
-        // loadPosts(); // Оновлюємо стрічку
+        const deleteBtn = document.querySelector(`[data-post-id="${postId}"] .delete-btn`);
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = 'Видалення...';
+        }
+
+        const response = await fetch(`/api/posts/${postId}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            showMessage('✅ Пост успішно видалено!', 'success');
+            await loadPosts();
+        } else {
+            showMessage('❌ ' + result.message, 'error');
+        }
     } catch (error) {
         console.error('Помилка видалення:', error);
         showMessage('❌ Помилка при видаленні посту', 'error');
@@ -260,47 +351,53 @@ async function deletePost(postId) {
 
 // Завантаження останніх користувачів (тільки для адміна)
 async function loadRecentUsers() {
-    if (!isAdmin) return;
+    if (!isAdmin || !recentUsersEl) return;
     
     try {
         const response = await fetch('/api/users');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const users = await response.json();
         displayRecentUsers(users.slice(-5));
     } catch (error) {
         console.error('Помилка завантаження користувачів:', error);
+        recentUsersEl.innerHTML = '<p>❌ Помилка завантаження користувачів</p>';
     }
 }
 
-// Відображення останніх користувачів (тільки для адміна)
+// Відображення останніх користувачів
 function displayRecentUsers(users) {
     if (!recentUsersEl || !isAdmin) return;
     
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
         recentUsersEl.innerHTML = '<p>👥 Ще немає користувачів</p>';
         return;
     }
 
     recentUsersEl.innerHTML = users.map(user => `
         <div class="user-item">
-            <div class="user-avatar">${user.fullName.charAt(0)}</div>
+            <div class="user-avatar" aria-label="Аватар користувача">
+                ${user.fullName ? user.fullName.charAt(0).toUpperCase() : '?'}
+            </div>
             <div class="user-info">
                 <div class="user-name">
-                    ${user.fullName}
-                    ${user.role === 'admin' ? '<span style="color: gold; margin-left: 5px;">👑</span>' : ''}
+                    ${user.fullName || 'Невідомий користувач'}
+                    ${user.role === 'admin' ? '<span class="admin-badge" title="Адміністратор">👑</span>' : ''}
                 </div>
-                <div class="user-email">📧 ${user.email}</div>
-                <div class="user-date">📅 ${user.registration_date}</div>
+                <div class="user-email">📧 ${user.email || 'Немає email'}</div>
+                <div class="user-date">📅 ${user.registration_date || 'Невідома дата'}</div>
             </div>
         </div>
     `).join('');
 }
 
-// Оновлення статистики (тільки для адміна)
+// Оновлення статистики
 function updateStats() {
     if (!isAdmin || !totalPostsEl || !totalLikesEl) return;
     
     const totalPosts = allPosts.length;
-    const totalLikes = allPosts.reduce((sum, post) => sum + post.likes, 0);
+    const totalLikes = allPosts.reduce((sum, post) => sum + (post.likes || 0), 0);
     
     totalPostsEl.textContent = totalPosts;
     totalLikesEl.textContent = totalLikes;
@@ -308,12 +405,14 @@ function updateStats() {
 
 // Показ повідомлень
 function showMessage(message, type) {
-    // Видаляємо попередні повідомлення
     const existingNotifications = document.querySelectorAll('.notification');
     existingNotifications.forEach(notification => notification.remove());
     
     const notification = document.createElement('div');
-    notification.className = 'notification';
+    notification.className = `notification ${type}`;
+    notification.setAttribute('role', 'alert');
+    notification.setAttribute('aria-live', 'polite');
+    
     notification.style.cssText = `
         position: fixed;
         top: 20px;
@@ -346,10 +445,10 @@ function showMessage(message, type) {
                 notification.remove();
             }
         }, 300);
-    }, 3000);
+    }, 5000);
 }
 
-// Автоматичне оновлення стрічки кожні 30 секунд
+// Автоматичне оновлення стрічки
 setInterval(() => {
     loadPosts();
     if (isAdmin) {
@@ -357,9 +456,7 @@ setInterval(() => {
     }
 }, 30000);
 
-// Обробка клавіші ESC для закриття модального вікна
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && postModal && postModal.style.display === 'block') {
-        closeModalFunc();
-    }
-});
+// Експорт функцій для глобального використання
+window.likePost = likePost;
+window.deletePost = deletePost;
+window.loadPosts = loadPosts;

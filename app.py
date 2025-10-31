@@ -3,37 +3,48 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date
 import os
 import hashlib
+import html
+import re
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
 db = SQLAlchemy(app)
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True) # Унікальний ідентифікатор користувача
-    fullName = db.Column(db.String(100), nullable=False) # Повне ім'я та прізвище користувача
-    email = db.Column(db.String(100), unique=True, nullable=False) # Електронна пошта користувача
-    phone = db.Column(db.String(20), nullable=False) # Номер телефону користувача
-    password = db.Column(db.String(128), nullable=False) # Хешований пароль користувача
-    registration_date = db.Column(db.DateTime, default=datetime.utcnow) # Дата та час реєстрації користувача
-    role = db.Column(db.String(20), default='user') # Роль користувача: 'user' або 'admin'
-    posts = db.relationship('Post', backref='author', lazy=True) # Відношення до постів користувача 
+    id = db.Column(db.Integer, primary_key=True)
+    fullName = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    password = db.Column(db.String(128), nullable=False)
+    registration_date = db.Column(db.DateTime, default=datetime.utcnow)
+    role = db.Column(db.String(20), default='user')
+    posts = db.relationship('Post', backref='author', lazy=True)
 
 class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True) # Унікальний ідентифікатор поста
-    title = db.Column(db.String(200), nullable=False) # Заголовок поста
-    content = db.Column(db.Text, nullable=False) # Зміст поста
-    date_posted = db.Column(db.DateTime, default=datetime.utcnow) # Дата та час публікації поста
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Ідентифікатор автора поста
-    likes = db.Column(db.Integer, default=0) # Кількість лайків поста
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    likes = db.Column(db.Integer, default=0)
 
-# Функція для хешування пароля
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-# Ініціалізація бази
+def escape_html(text):
+    return html.escape(str(text))
+
+def validate_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_phone(phone):
+    pattern = r'^\+?[0-9\s\-\(\)]{10,}$'
+    return re.match(pattern, phone) is not None
+
 def init_db():
     with app.app_context():
         db.create_all()
@@ -44,7 +55,7 @@ def init_db():
                 fullName='Кушнір Даніїл',
                 email='dankusnir09@gmail.com',
                 phone='0977138005',
-                password=hash_password('admin123'),  # Пароль адміністратора
+                password=hash_password('admin123'),
                 role='admin'
             )
             db.session.add(admin_user)
@@ -56,55 +67,81 @@ def init_db():
 with app.app_context():
     init_db()
 
-# Маршрути
+# Головна сторінка (home)
 @app.route('/')
-def index():
+@app.route('/home')
+def home():
+    if 'user_id' not in session:
+        return redirect('/index')
+    
     users = User.query.all()
     today = date.today()
     today_users = User.query.filter(db.func.date(User.registration_date) == today).count()
     
-    user_logged_in = 'user_id' in session
-    current_user = None
-    if user_logged_in:
-        current_user = User.query.get(session['user_id'])
+    current_user = User.query.get(session['user_id'])
     
-    return render_template('index.html', 
+    return render_template('home.html', 
                          users=users, 
                          today_users=today_users,
-                         user_logged_in=user_logged_in,
                          current_user=current_user)
+
+# Сторінка реєстрації та входу
+@app.route('/index')
+def index():
+    # Якщо користувач вже увійшов, перенаправляємо на головну
+    if 'user_id' in session:
+        return redirect('/home')
+    
+    return render_template('index.html')
 
 @app.route('/register', methods=['POST'])
 def register():
     try:
-        fullName = request.form['fullName']
-        email = request.form['email']
-        phone = request.form['phone']
+        # Якщо користувач вже увійшов, перенаправляємо на головну
+        if 'user_id' in session:
+            return redirect('/home')
+            
+        fullName = escape_html(request.form['fullName'].strip())
+        email = request.form['email'].strip().lower()
+        phone = request.form['phone'].strip()
         password = request.form['password']
         confirm_password = request.form['confirm_password']
         
-        # Перевірка паролів
+        if not all([fullName, email, phone, password, confirm_password]):
+            flash('Будь ласка, заповніть всі обов\'язкові поля!')
+            return redirect('/index')
+        
+        if len(fullName) < 2 or len(fullName) > 100:
+            flash('Ім\'я та прізвище має містити від 2 до 100 символів!')
+            return redirect('/index')
+        
+        if not validate_email(email):
+            flash('Будь ласка, введіть коректний email!')
+            return redirect('/index')
+        
+        if not validate_phone(phone):
+            flash('Будь ласка, введіть коректний номер телефону!')
+            return redirect('/index')
+        
         if password != confirm_password:
             flash('Паролі не співпадають!')
-            return redirect('/')
+            return redirect('/index')
         
         if len(password) < 6:
             flash('Пароль має бути не менше 6 символів!')
-            return redirect('/')
+            return redirect('/index')
         
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
             flash('Користувач з таким email вже існує! Увійдіть в систему.')
-            return redirect('/')
+            return redirect('/index')
         
-        # Завжди створюємо тільки звичайних користувачів
         role = 'user'
         
-        # Адміністратор може бути тільки один
         existing_admin = User.query.filter_by(role='admin').first()
         if email == 'dankusnir09@gmail.com' and existing_admin:
             flash('Адміністратор вже існує! Будь ласка, використовуйте інший email.')
-            return redirect('/')
+            return redirect('/index')
         
         new_user = User(
             fullName=fullName, 
@@ -118,108 +155,186 @@ def register():
         
         session['user_id'] = new_user.id
         session['user_email'] = new_user.email
+        session['user_role'] = new_user.role
         
         flash('Реєстрація успішна! Ви автоматично увійшли в систему.')
-        return redirect('/')
+        return redirect('/home')
     except Exception as e:
         flash('Помилка реєстрації: ' + str(e))
-        return redirect('/')
+        return redirect('/index')
 
 @app.route('/login', methods=['POST'])
 def login():
     try:
-        email = request.form['email']
+        # Якщо користувач вже увійшов, перенаправляємо на головну
+        if 'user_id' in session:
+            return redirect('/home')
+            
+        email = request.form['email'].strip().lower()
         password = request.form['password']
+        
+        if not email or not password:
+            flash('Будь ласка, заповніть всі поля!')
+            return redirect('/index')
         
         user = User.query.filter_by(email=email).first()
         if user and user.password == hash_password(password):
             session['user_id'] = user.id
             session['user_email'] = user.email
+            session['user_role'] = user.role
             flash(f'Вітаємо, {user.fullName}! Ви успішно увійшли.')
+            return redirect('/home')
         else:
             flash('Невірний email або пароль!')
+            return redirect('/index')
         
-        return redirect('/')
     except Exception as e:
         flash('Помилка входу: ' + str(e))
-        return redirect('/')
+        return redirect('/index')
 
 @app.route('/logout')
 def logout():
     session.clear()
     flash('Ви вийшли з системи.')
-    return redirect('/')
+    return redirect('/index')
 
 @app.route('/newsfeed')
 def newsfeed():
     if 'user_id' not in session:
         flash('Будь ласка, увійдіть в систему для перегляду стрічки.')
-        return redirect('/')
+        return redirect('/index')
     
-    # ✅ ВИПРАВЛЕНА ЛІНІЯ - використовуємо .get()
     current_user = User.query.get(session.get('user_id'))
+    if not current_user:
+        session.clear()
+        flash('Сесія закінчилася. Будь ласка, увійдіть знову.')
+        return redirect('/index')
+    
     return render_template('newsfeed.html', current_user=current_user)
 
 # Решта API маршрутів залишаються незмінними...
 @app.route('/api/users')
 def get_users():
-    users = User.query.all()
-    users_data = []
-    for user in users:
-        users_data.append({
-            'id': user.id,
-            'fullName': user.fullName,
-            'email': user.email,
-            'phone': user.phone,
-            'role': user.role,
-            'registration_date': user.registration_date.strftime('%d.%m.%Y %H:%M')
-        })
-    return jsonify(users_data)
+    try:
+        users = User.query.all()
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'fullName': escape_html(user.fullName),
+                'email': user.email,
+                'phone': user.phone,
+                'role': user.role,
+                'registration_date': user.registration_date.strftime('%d.%m.%Y %H:%M')
+            })
+        return jsonify(users_data)
+    except Exception as e:
+        return jsonify({'error': 'Помилка сервера'}), 500
 
 @app.route('/api/posts', methods=['GET', 'POST'])
 def handle_posts():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({'success': False, 'message': 'Увійдіть в систему!'})
-
-    if request.method == 'POST':
-        data = request.json
+    try:
+        if request.method == 'POST':
+            if 'user_id' not in session:
+                return jsonify({'success': False, 'message': 'Увійдіть в систему!'}), 401
+            
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'message': 'Невірний формат даних'}), 400
+            
+            title = escape_html(data.get('title', '').strip())
+            content = escape_html(data.get('content', '').strip())
+            
+            if not title or not content:
+                return jsonify({'success': False, 'message': 'Заголовок та зміст обов\'язкові'}), 400
+            
+            if len(title) > 200:
+                return jsonify({'success': False, 'message': 'Заголовок занадто довгий'}), 400
+            
+            user_id = session.get('user_id')
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'success': False, 'message': 'Користувача не знайдено'}), 404
+            
+            new_post = Post(
+                title=title,
+                content=content,
+                user_id=user.id
+            )
+            db.session.add(new_post)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Пост додано!',
+                'post_id': new_post.id
+            })
         
-        # Тепер кожен зареєстрований користувач може створювати пости
-        user_id = session.get('user_id')
-        if not user_id:
-            return jsonify({'success': False, 'message': 'Помилка сесії'})
-        user = User.query.get(user_id)
-        
-        new_post = Post(
-            title=data['title'],
-            content=data['content'],
-            user_id=user.id
-        )
-        db.session.add(new_post)
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'Пост додано!'})
+        # GET method
+        posts = Post.query.order_by(Post.date_posted.desc()).all()
+        posts_data = []
+        for post in posts:
+            posts_data.append({
+                'id': post.id,
+                'title': post.title,
+                'content': post.content,
+                'date_posted': post.date_posted.strftime('%d.%m.%Y %H:%M'),
+                'author': escape_html(post.author.fullName),
+                'author_role': post.author.role,
+                'likes': post.likes
+            })
+        return jsonify(posts_data)
     
-    posts = Post.query.order_by(Post.date_posted.desc()).all()
-    posts_data = []
-    for post in posts:
-        posts_data.append({
-            'id': post.id,
-            'title': post.title,
-            'content': post.content,
-            'date_posted': post.date_posted.strftime('%d.%m.%Y %H:%M'),
-            'author': post.author.fullName,
-            'author_role': post.author.role,
-            'likes': post.likes
-        })
-    return jsonify(posts_data)
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Помилка сервера'}), 500
 
 @app.route('/api/posts/<int:post_id>/like', methods=['POST'])
 def like_post(post_id):
-    post = Post.query.get_or_404(post_id)
-    post.likes += 1
-    db.session.commit()
-    return jsonify({'success': True, 'likes': post.likes})
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Увійдіть в систему!'}), 401
+        
+        post = Post.query.get_or_404(post_id)
+        post.likes += 1
+        db.session.commit()
+        
+        return jsonify({'success': True, 'likes': post.likes})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Помилка сервера'}), 500
+
+@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
+def delete_post(post_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Увійдіть в систему!'}), 401
+        
+        post = Post.query.get_or_404(post_id)
+        current_user = User.query.get(session['user_id'])
+        
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'message': 'Недостатньо прав!'}), 403
+        
+        db.session.delete(post)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Пост видалено!'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Помилка сервера'}), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('500.html'), 500
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template('403.html'), 403
 
 if __name__ == '__main__':
     app.run(debug=True)
