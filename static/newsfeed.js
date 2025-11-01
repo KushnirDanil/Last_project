@@ -155,8 +155,10 @@ function displayPosts(posts) {
             <h3 class="post-title">${post.title}</h3>
             <div class="post-content">${post.content}</div>
             <div class="post-actions">
-                <button class="like-btn" onclick="likePost(${post.id})" aria-label="Вподобати пост">
-                    ❤️ <span class="like-count">${post.likes}</span>
+                <button class="like-btn ${post.user_liked ? 'liked' : ''}" onclick="toggleLike(${post.id})" 
+                        aria-label="${post.user_liked ? 'Прибрати лайк' : 'Вподобати пост'}">
+                    ${post.user_liked ? '💖' : '❤️'} 
+                    <span class="like-count">${post.likes}</span>
                 </button>
                 ${isAdmin ? `
                     <button class="delete-btn" onclick="deletePost(${post.id})" aria-label="Видалити пост">
@@ -276,35 +278,54 @@ async function handleQuickPost() {
     }
 }
 
-// Лайк посту
-async function likePost(postId) {
+// Перемикач лайку
+async function toggleLike(postId) {
     try {
         const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-btn`);
-        if (likeBtn) {
-            likeBtn.disabled = true;
-        }
+        if (!likeBtn) return;
 
-        const response = await fetch(`/api/posts/${postId}/like`, {
+        // Блокуємо кнопку під час запиту
+        likeBtn.disabled = true;
+
+        // Визначаємо, чи пост вже лайкнутий
+        const isLiked = likeBtn.classList.contains('liked');
+        
+        const response = await fetch(`/api/posts/${postId}/${isLiked ? 'unlike' : 'like'}`, {
             method: 'POST'
         });
 
         const result = await response.json();
         
         if (result.success) {
+            // Оновлюємо інтерфейс
             const likeCount = document.querySelector(`[data-post-id="${postId}"] .like-count`);
             if (likeCount) {
                 likeCount.textContent = result.likes;
             }
+            
+            if (isLiked) {
+                // Видаляємо лайк
+                likeBtn.classList.remove('liked');
+                likeBtn.innerHTML = '❤️ <span class="like-count">' + result.likes + '</span>';
+                likeBtn.setAttribute('aria-label', 'Вподобати пост');
+                showMessage('💔 Лайк видалено!', 'success');
+            } else {
+                // Додаємо лайк
+                likeBtn.classList.add('liked');
+                likeBtn.innerHTML = '💖 <span class="like-count">' + result.likes + '</span>';
+                likeBtn.setAttribute('aria-label', 'Прибрати лайк');
+                showMessage('💖 Пост вподобано!', 'success');
+            }
+            
             if (isAdmin) {
                 updateStats();
             }
-            showMessage('❤️ Вам сподобався цей пост!', 'success');
         } else {
             showMessage('❌ ' + result.message, 'error');
         }
     } catch (error) {
         console.error('Помилка лайку:', error);
-        showMessage('❌ Помилка при лайку посту', 'error');
+        showMessage('❌ Помилка при взаємодії з постом', 'error');
     } finally {
         const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-btn`);
         if (likeBtn) {
@@ -445,7 +466,7 @@ function showMessage(message, type) {
                 notification.remove();
             }
         }, 300);
-    }, 5000);
+    }, 3000);
 }
 
 // Автоматичне оновлення стрічки
@@ -457,6 +478,6 @@ setInterval(() => {
 }, 30000);
 
 // Експорт функцій для глобального використання
-window.likePost = likePost;
+window.toggleLike = toggleLike;
 window.deletePost = deletePost;
 window.loadPosts = loadPosts;

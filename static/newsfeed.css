@@ -781,3 +781,46 @@ body {
         padding: 25px 20px;
     }
 }
+/* ===== NEWSFEED LIKE BUTTON STYLES ===== */
+
+/* Стилі для кнопки лайку */
+.like-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.like-btn:hover:not(:disabled) {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+    transform: scale(1.05);
+}
+
+.like-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.like-btn.liked {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.like-btn:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+.like-count {
+    font-weight: 700;
+    min-width: 20px;
+    text-align: center;
+}

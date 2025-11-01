@@ -114,25 +114,7 @@
                 </div>
             </section>
             {% endif %}
-
-            <!-- Швидкі дії -->
-            <section class="quick-actions">
-                <h2>⚡ Швидкі дії</h2>
-                <div class="actions-grid">
-                    <a href="/newsfeed" class="action-card">
-                        <div class="action-icon">📰</div>
-                        <h3>Перейти до стрічки</h3>
-                        <p>Переглянути останні пости</p>
-                    </a>
-                    {% if current_user.role == 'admin' %}
-                    <a href="/newsfeed" class="action-card">
-                        <div class="action-icon">👑</div>
-                        <h3>Адмін-панель</h3>
-                        <p>Керування контентом</p>
-                    </a>
-                    {% endif %}
-                </div>
-            </section>
+            
         </main>
 
         {% with messages = get_flashed_messages() %}
