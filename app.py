@@ -13,6 +13,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
 db = SQLAlchemy(app)
 
+# --- MODELS ----------------------------------------------------------------------------------------
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fullName = db.Column(db.String(100), nullable=False)
@@ -22,6 +24,7 @@ class User(db.Model):
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     role = db.Column(db.String(20), default='user')
     posts = db.relationship('Post', backref='author', lazy=True)
+    likes = db.relationship('Like', backref='user', lazy=True)
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,6 +33,18 @@ class Post(db.Model):
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     likes = db.Column(db.Integer, default=0)
+    post_likes = db.relationship('Like', backref='post', lazy=True)
+
+class Like(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Унікальний обмежувач - один користувач може лайкнути пост тільки один раз
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='_user_post_uc'),)
+
+# --- FUNCTIONS ----------------------------------------------------------------------------------
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -67,32 +82,9 @@ def init_db():
 with app.app_context():
     init_db()
 
-# Головна сторінка (home)
-@app.route('/')
-@app.route('/home')
-def home():
-    if 'user_id' not in session:
-        return redirect('/index')
-    
-    users = User.query.all()
-    today = date.today()
-    today_users = User.query.filter(db.func.date(User.registration_date) == today).count()
-    
-    current_user = User.query.get(session['user_id'])
-    
-    return render_template('home.html', 
-                         users=users, 
-                         today_users=today_users,
-                         current_user=current_user)
+# --- ROUTES --------------------------------------------------------------------------------------
 
-# Сторінка реєстрації та входу
-@app.route('/index')
-def index():
-    # Якщо користувач вже увійшов, перенаправляємо на головну
-    if 'user_id' in session:
-        return redirect('/home')
-    
-    return render_template('index.html')
+# LOGON
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -198,6 +190,33 @@ def logout():
     flash('Ви вийшли з системи.')
     return redirect('/index')
 
+# Головна сторінка (home)
+@app.route('/')
+@app.route('/home')
+def home():
+    if 'user_id' not in session:
+        return redirect('/index')
+    
+    users = User.query.all()
+    today = date.today()
+    today_users = User.query.filter(db.func.date(User.registration_date) == today).count()
+    
+    current_user = User.query.get(session['user_id'])
+    
+    return render_template('home.html', 
+                         users=users, 
+                         today_users=today_users,
+                         current_user=current_user)
+
+# Сторінка реєстрації та входу
+@app.route('/index')
+def index():
+    # Якщо користувач вже увійшов, перенаправляємо на головну
+    if 'user_id' in session:
+        return redirect('/home')
+    
+    return render_template('index.html')
+
 @app.route('/newsfeed')
 def newsfeed():
     if 'user_id' not in session:
@@ -212,7 +231,9 @@ def newsfeed():
     
     return render_template('newsfeed.html', current_user=current_user)
 
-# Решта API маршрутів залишаються незмінними...
+# --------------------------------------------------------------------------------------------
+# API маршрути
+
 @app.route('/api/users')
 def get_users():
     try:
@@ -270,10 +291,16 @@ def handle_posts():
                 'post_id': new_post.id
             })
         
-        # GET method
+        # GET method - ТЕПЕР З ПЕРЕВІРКОЮ ЛАЙКУ
         posts = Post.query.order_by(Post.date_posted.desc()).all()
         posts_data = []
         for post in posts:
+            # Перевіряємо, чи поточний користувач вже лайкнув цей пост
+            user_liked = False
+            if 'user_id' in session:
+                like = Like.query.filter_by(user_id=session['user_id'], post_id=post.id).first()
+                user_liked = like is not None
+                
             posts_data.append({
                 'id': post.id,
                 'title': post.title,
@@ -281,7 +308,8 @@ def handle_posts():
                 'date_posted': post.date_posted.strftime('%d.%m.%Y %H:%M'),
                 'author': escape_html(post.author.fullName),
                 'author_role': post.author.role,
-                'likes': post.likes
+                'likes': post.likes,
+                'user_liked': user_liked  # Додаємо інформацію про лайк користувача
             })
         return jsonify(posts_data)
     
@@ -294,13 +322,63 @@ def like_post(post_id):
         if 'user_id' not in session:
             return jsonify({'success': False, 'message': 'Увійдіть в систему!'}), 401
         
+        user_id = session['user_id']
         post = Post.query.get_or_404(post_id)
+        
+        # Перевіряємо, чи користувач вже лайкнув цей пост
+        existing_like = Like.query.filter_by(user_id=user_id, post_id=post_id).first()
+        
+        if existing_like:
+            return jsonify({'success': False, 'message': 'Ви вже вподобали цей пост!'}), 400
+        
+        # Додаємо лайк
+        new_like = Like(user_id=user_id, post_id=post_id)
+        db.session.add(new_like)
+        
+        # Оновлюємо лічильник лайків
         post.likes += 1
         db.session.commit()
         
-        return jsonify({'success': True, 'likes': post.likes})
+        return jsonify({
+            'success': True, 
+            'likes': post.likes,
+            'message': 'Пост вподобано!'
+        })
     
     except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Помилка сервера'}), 500
+
+@app.route('/api/posts/<int:post_id>/unlike', methods=['POST'])
+def unlike_post(post_id):
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Увійдіть в систему!'}), 401
+        
+        user_id = session['user_id']
+        post = Post.query.get_or_404(post_id)
+        
+        # Знаходимо лайк
+        like = Like.query.filter_by(user_id=user_id, post_id=post_id).first()
+        
+        if not like:
+            return jsonify({'success': False, 'message': 'Ви ще не вподобали цей пост!'}), 400
+        
+        # Видаляємо лайк
+        db.session.delete(like)
+        
+        # Оновлюємо лічильник лайків
+        post.likes = max(0, post.likes - 1)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'likes': post.likes,
+            'message': 'Лайк видалено!'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'success': False, 'message': 'Помилка сервера'}), 500
 
 @app.route('/api/posts/<int:post_id>', methods=['DELETE'])
@@ -315,6 +393,10 @@ def delete_post(post_id):
         if current_user.role != 'admin':
             return jsonify({'success': False, 'message': 'Недостатньо прав!'}), 403
         
+        # Спочатку видаляємо всі лайки цього поста
+        Like.query.filter_by(post_id=post_id).delete()
+        
+        # Потім видаляємо сам пост
         db.session.delete(post)
         db.session.commit()
         

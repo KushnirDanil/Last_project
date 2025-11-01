@@ -155,7 +155,8 @@ function displayPosts(posts) {
             <h3 class="post-title">${post.title}</h3>
             <div class="post-content">${post.content}</div>
             <div class="post-actions">
-                <button class="like-btn ${post.user_liked ? 'liked' : ''}" onclick="toggleLike(${post.id})" 
+                <button class="like-btn ${post.user_liked ? 'liked' : ''}" 
+                        onclick="toggleLike(${post.id}, ${post.user_liked})" 
                         aria-label="${post.user_liked ? 'Прибрати лайк' : 'Вподобати пост'}">
                     ${post.user_liked ? '💖' : '❤️'} 
                     <span class="like-count">${post.likes}</span>
@@ -278,8 +279,8 @@ async function handleQuickPost() {
     }
 }
 
-// Перемикач лайку
-async function toggleLike(postId) {
+// Перемикач лайку (додати/прибрати)
+async function toggleLike(postId, isCurrentlyLiked) {
     try {
         const likeBtn = document.querySelector(`[data-post-id="${postId}"] .like-btn`);
         if (!likeBtn) return;
@@ -287,10 +288,9 @@ async function toggleLike(postId) {
         // Блокуємо кнопку під час запиту
         likeBtn.disabled = true;
 
-        // Визначаємо, чи пост вже лайкнутий
-        const isLiked = likeBtn.classList.contains('liked');
+        const endpoint = isCurrentlyLiked ? 'unlike' : 'like';
         
-        const response = await fetch(`/api/posts/${postId}/${isLiked ? 'unlike' : 'like'}`, {
+        const response = await fetch(`/api/posts/${postId}/${endpoint}`, {
             method: 'POST'
         });
 
@@ -303,17 +303,19 @@ async function toggleLike(postId) {
                 likeCount.textContent = result.likes;
             }
             
-            if (isLiked) {
+            if (isCurrentlyLiked) {
                 // Видаляємо лайк
                 likeBtn.classList.remove('liked');
                 likeBtn.innerHTML = '❤️ <span class="like-count">' + result.likes + '</span>';
                 likeBtn.setAttribute('aria-label', 'Вподобати пост');
+                likeBtn.onclick = function() { toggleLike(postId, false); };
                 showMessage('💔 Лайк видалено!', 'success');
             } else {
                 // Додаємо лайк
                 likeBtn.classList.add('liked');
                 likeBtn.innerHTML = '💖 <span class="like-count">' + result.likes + '</span>';
                 likeBtn.setAttribute('aria-label', 'Прибрати лайк');
+                likeBtn.onclick = function() { toggleLike(postId, true); };
                 showMessage('💖 Пост вподобано!', 'success');
             }
             
