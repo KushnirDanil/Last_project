@@ -108,12 +108,75 @@
             </section>
             {% endif %}
             
+            <!-- НОВА СЕКЦІЯ: Пости користувача -->
+            <section class="posts-section">
+                <div class="posts-grid">
+                    <!-- Мої пости -->
+                    <div class="posts-column">
+                        <h3>📝 Мої пости</h3>
+                        <div class="posts-container">
+                            {% if user_posts %}
+                                {% for post in user_posts %}
+                                <div class="post-card">
+                                    <div class="post-header">
+                                        <div class="post-title">{{ post.title }}</div>
+                                        <div class="post-date">{{ post.date_posted.strftime('%d.%m.%Y %H:%M') }}</div>
+                                    </div>
+                                    <div class="post-content">{{ post.content }}</div>
+                                    <div class="post-stats">
+                                        <span class="likes-count">❤️ {{ post.likes }} лайків</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-posts">
+                                    <p>📭 У вас ще немає постів</p>
+                                    <p>Створіть перший пост у стрічці новин!</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Вподобані пости -->
+                    <div class="posts-column">
+                        <h3>❤️ Вподобані пости</h3>
+                        <div class="posts-container">
+                            {% if liked_posts %}
+                                {% for post in liked_posts %}
+                                <div class="post-card">
+                                    <div class="post-header">
+                                        <div class="post-title">{{ post.title }}</div>
+                        <div class="post-date">{{ post.date_posted.strftime('%d.%m.%Y %H:%M') }}</div>
+                                    </div>
+                                    <div class="post-content">{{ post.content }}</div>
+                                    <div class="post-author">
+                                        👤 {{ post.author.fullName }}
+                                        {% if post.author.role == 'admin' %}
+                                            <span class="admin-badge">👑</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="post-stats">
+                                        <span class="likes-count">❤️ {{ post.likes }} лайків</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-posts">
+                                    <p>💔 Ви ще не лайкали пости</p>
+                                    <p>Знайдіть цікаві пости у стрічці новин!</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
         </main>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 <div class="message success">
-                    {{ messages[0] }}
+                    {{ messages[0] }}z
                 </div>
             {% endif %}
         {% endwith %}

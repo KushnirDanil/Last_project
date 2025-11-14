@@ -203,10 +203,20 @@ def home():
     
     current_user = User.query.get(session['user_id'])
     
+    # Отримуємо пости поточного користувача
+    user_posts = Post.query.filter_by(user_id=current_user.id).order_by(Post.date_posted.desc()).all()
+    
+    # Отримуємо пости, які користувач лайкнув
+    liked_posts = Post.query.join(Like).filter(
+        Like.user_id == current_user.id
+    ).order_by(Post.date_posted.desc()).all()
+    
     return render_template('home.html', 
                          users=users, 
                          today_users=today_users,
-                         current_user=current_user)
+                         current_user=current_user,
+                         user_posts=user_posts,
+                         liked_posts=liked_posts)
 
 # Сторінка реєстрації та входу
 @app.route('/index')
