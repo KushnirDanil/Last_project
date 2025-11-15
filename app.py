@@ -222,38 +222,36 @@ def login():
     Обробка входу користувача
     Перевіряє email та пароль, створює сесію
     """
-    try:
-        # Якщо користувач вже увійшов, перенаправляємо на головну
-        if 'user_id' in session:
-            return redirect('/home')
-            
-        # Отримання даних з форми
-        email = request.form['email'].strip().lower()
-        password = request.form['password']
+
+    # Якщо користувач вже увійшов, перенаправляємо на головну
+    if 'user_id' in session:
+        return redirect('/home')
         
-        # Перевірка наявності даних
-        if not email or not password:
-            flash('Будь ласка, заповніть всі поля!')
-            return redirect('/index')
-        
-        # Пошук користувача в базі даних
-        user = User.query.filter_by(email=email).first()
-        
-        # Перевірка пароля (порівнюємо хеші)
-        if user and user.password == hash_password(password):
-            # Збереження інформації в сесії
-            session['user_id'] = user.id
-            session['user_email'] = user.email
-            session['user_role'] = user.role
-            flash(f'Вітаємо, {user.fullName}! Ви успішно увійшли.')
-            return redirect('/home')
-        else:
-            flash('Невірний email або пароль!')
-            return redirect('/index')
-        
-    except Exception as e:
-        flash('Помилка входу: ' + str(e))
+    # Отримання даних з форми
+    email = request.form['email'].strip().lower()
+    password = request.form['password']
+    
+    # Перевірка наявності даних
+    if not email or not password:
+        flash('Будь ласка, заповніть всі поля!')
         return redirect('/index')
+    
+    # Пошук користувача в базі даних
+    user = User.query.filter_by(email=email).first()
+    
+    # Перевірка пароля (порівнюємо хеші)
+    if user and user.password == hash_password(password):
+        # Збереження інформації в сесії
+        session['user_id'] = user.id
+        session['user_email'] = user.email
+        session['user_role'] = user.role
+        flash(f'Вітаємо, {user.fullName}! Ви успішно увійшли.')
+        return redirect('/home')
+    else:
+        flash('Невірний email або пароль!')
+        return redirect('/index')
+        
+ 
 
 @app.route('/logout')
 def logout():
